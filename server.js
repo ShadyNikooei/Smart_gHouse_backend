@@ -10,12 +10,22 @@ const port = 2000;
 
 app.use(bodyParser.json());
 
-mongoose.connect('mongodb://localhost:27017/greenhouse', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
+//mongoose.connect('mongodb://localhost:27017/greenhouse', {
+  //useNewUrlParser: true,
+  //useUnifiedTopology: true
+//})
+//.then(() => console.log('MongoDB connected'))
+//.catch(err => console.error('MongoDB connection error:', err));
+
+const uri = "mongodb+srv://shnnikooei82:x9WVOrLAZOrzTTMw@cluster0.s1wpyjz.mongodb.net/greenhouse?retryWrites=true&w=majority";
+
+mongoose.connect(uri, {
+  //useNewUrlParser: true,
+  //useUnifiedTopology: true
 })
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB connection error:', err));
+
 
 // Define SensorData model here directly
 const sensorDataSchema = new mongoose.Schema({
