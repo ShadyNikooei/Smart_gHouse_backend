@@ -1,60 +1,59 @@
+// server.js
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
+const http = require('http');
+const cors = require('cors');
+const { Server } = require('socket.io');
 
-const setupControlRoutes = require('./controlRoutes');
-const sensorSummaryRoutes = require('./sensorSummaryRoutes');
+// Import routes
+const authRoutes = require('./routes/authRoutes');
+const sensorRoutes = require('./routes/sensorRoutes');
+const controlRoutes = require('./routes/controlRoutes');
 
 const app = express();
-const port = 2000;
+const port = process.env.PORT || 2000;
 
+app.use(cors());
 app.use(bodyParser.json());
 
-//mongoose.connect('mongodb://localhost:27017/greenhouse', {
-  //useNewUrlParser: true,
-  //useUnifiedTopology: true
-//})
-//.then(() => console.log('MongoDB connected'))
-//.catch(err => console.error('MongoDB connection error:', err));
-
-const uri = "mongodb+srv://shnnikooei82:x9WVOrLAZOrzTTMw@cluster0.s1wpyjz.mongodb.net/greenhouse?retryWrites=true&w=majority";
-
-mongoose.connect(uri, {
-  //useNewUrlParser: true,
-  //useUnifiedTopology: true
-})
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.error('MongoDB connection error:', err));
-
-
-// Define SensorData model here directly
-const sensorDataSchema = new mongoose.Schema({
-    temperature: Number,
-    humidity: Number,
-    soilMoisture: Number,
-    timestamp: { type: Date, default: Date.now }
-});
-const SensorData = mongoose.model('SensorData', sensorDataSchema);
-
-// Route to receive sensor data
-app.post('/sensor-data', async (req, res) => {
-  try {
-    const { temperature, humidity, soilMoisture } = req.body;
-    const newData = new SensorData({ temperature, humidity, soilMoisture });
-    await newData.save();
-    console.log('Data saved:', newData);
-    res.status(200).send({ message: 'Data saved successfully' });
-  } catch (error) {
-    console.error('Error saving data:', error);
-    res.status(500).send({ message: 'Server error' });
+// Create HTTP server and attach socket.io
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*'
   }
 });
 
-// Pass the SensorData model to sensorSummaryRoutes, because it needs it
-sensorSummaryRoutes(app, SensorData);
+// Make io available in req.app.locals
+app.locals.io = io;
 
-setupControlRoutes(app);
+// Connect to MongoDB
+const uri = process.env.MONGODB_URI;
+if (!uri) {
+  console.error('MONGODB_URI not set in environment');
+  process.exit(1);
+}
 
-app.listen(port, () => {
+mongoose.connect(uri)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Routes
+app.use('/auth', authRoutes);
+app.use('/', sensorRoutes);      // includes /sensor-data, /sensor-summary, /sensor-last10
+app.use('/', controlRoutes);     // includes /get-control, /set-control (protected)
+
+// Socket.io connection logging (optional)
+io.on('connection', (socket) => {
+  console.log('Socket connected:', socket.id);
+  socket.on('disconnect', () => {
+    console.log('Socket disconnected:', socket.id);
+  });
+});
+
+// Start server (httpServer because of socket.io)
+httpServer.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
