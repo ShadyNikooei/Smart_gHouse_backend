@@ -8,8 +8,8 @@ async function postSensorData(req, res) {
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   try {
-    const { temperature, humidity, soilMoisture } = req.body;
-    const newData = new SensorData({ temperature, humidity, soilMoisture });
+    const { temperature, humidity, soil, relay1, relay2 } = req.body;
+    const newData = new SensorData({ temperature, humidity, soil, relay1, relay2 });
     await newData.save();
 
     // Emit realtime event via socket.io
@@ -22,6 +22,7 @@ async function postSensorData(req, res) {
     res.status(500).send({ message: 'Server error' });
   }
 }
+
 
 async function getSensorSummary(req, res) {
   try {

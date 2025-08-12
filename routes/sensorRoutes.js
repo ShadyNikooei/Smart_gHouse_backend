@@ -8,7 +8,9 @@ const { postSensorData, getSensorSummary, getLast10 } = require('../controllers/
 const sensorValidation = [
   body('temperature').isNumeric().withMessage('temperature must be a number'),
   body('humidity').isNumeric().withMessage('humidity must be a number'),
-  body('soilMoisture').isNumeric().withMessage('soilMoisture must be a number')
+  body('soil').isNumeric().withMessage('soil must be a number'), 
+  body('relay1').isNumeric().withMessage('relay1 must be a number'), 
+  body('relay2').isNumeric().withMessage('relay2 must be a number')  
 ];
 
 // POST /sensor-data
