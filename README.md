@@ -1,98 +1,119 @@
-Smart Greenhouse Backend Project
-This repository contains the backend for a comprehensive Smart Greenhouse system designed for remote monitoring and control of environmental conditions. The system is built on an IoT architecture, utilizing the efficient MQTT protocol for hardware communication and a REST API with WebSockets for client-side interaction.
+Smart Greenhouse IoT Backend
+<p align="center">
+<img src="https://www.google.com/search?q=https://placehold.co/800x250/1a202c/9f7aea%3Ftext%3DSmart%2BGreenhouse%2BProject" alt="Project Banner">
+</p>
+
+<p align="center">
+A robust, real-time backend for monitoring and controlling greenhouse environments using an IoT architecture.
+</p>
+
+<p align="center">
+<!-- Badges -->
+<img src="https://www.google.com/search?q=https://img.shields.io/badge/Node.js-18.x-339933%3Fstyle%3Dfor-the-badge%26logo%3Dnode.js" alt="Node.js">
+<img src="https://www.google.com/search?q=https://img.shields.io/badge/Express.js-4.x-000000%3Fstyle%3Dfor-the-badge%26logo%3Dexpress" alt="Express.js">
+<img src="https://www.google.com/search?q=https://img.shields.io/badge/MongoDB-6.x-47A248%3Fstyle%3Dfor-the-badge%26logo%3Dmongodb" alt="MongoDB">
+<img src="https://www.google.com/search?q=https://img.shields.io/badge/MQTT-Enabled-660066%3Fstyle%3Dfor-the-badge%26logo%3Dmqtt" alt="MQTT">
+<img src="https://www.google.com/search?q=https://img.shields.io/badge/Socket.io-4.x-010101%3Fstyle%3Dfor-the-badge%26logo%3Dsocket.io" alt="Socket.io">
+<img src="https://www.google.com/search?q=https://img.shields.io/badge/License-MIT-blue.svg%3Fstyle%3Dfor-the-badge" alt="License: MIT">
+</p>
+
+Overview
+This project provides the complete server-side infrastructure for a smart greenhouse system. It is designed to handle real-time data from multiple IoT devices, store it efficiently, and expose a secure API for a web-based client. The system uses the lightweight MQTT protocol for device communication and WebSockets for instant updates to the user interface.
 
 Key Features
-Real-time Data Monitoring: Instantly receive sensor data (temperature, humidity, soil moisture, etc.) via MQTT and display it live on the user dashboard using Socket.io.
+Real-time Data Monitoring: Instantly receives sensor telemetry (temperature, humidity, soil moisture) via MQTT and broadcasts it to clients using Socket.io.
 
-Remote Control: Ability to control actuators such as fans, lamps, and irrigation systems through a secure API.
+Secure Remote Control: Allows authenticated users to control actuators like fans, lamps, and irrigation systems through a secure REST API.
 
-Advanced Authentication: Secure registration and login system using JWT (Access & Refresh Tokens), with tokens stored in secure httpOnly cookies.
+Advanced JWT Authentication: Implements a robust authentication flow with Access Tokens and Refresh Tokens, stored securely in httpOnly cookies.
 
-Multi-Device Support: The database architecture is designed to store data for each device (greenhouse) in a separate MongoDB collection, ensuring scalability.
+Multi-Device Architecture: Dynamically creates a separate MongoDB collection for each registered device, ensuring data isolation and scalability.
 
-Reporting System: Generate statistical reports (average, minimum, maximum) from sensor data for custom date ranges.
+Powerful Reporting System: Features an endpoint to generate detailed statistical reports (average, min, max) for any device over a specified date range.
 
-Modular and Scalable Architecture: The project is structured modularly (controllers, models, routes) for ease of development and maintenance.
+Modular & Maintainable Codebase: Organized into a clean structure of controllers, models, routes, and middleware for easy maintenance and future expansion.
 
 Technology Stack
-Platform: Node.js
+Core Platform: Node.js
 
-Framework: Express.js
+Web Framework: Express.js
 
-Database: MongoDB (with Mongoose ODM)
+Database: MongoDB with Mongoose ODM
 
-IoT Communication Protocol: MQTT
+IoT Protocol: MQTT
 
-Real-time Client Communication: Socket.io
+Real-time Engine: Socket.io
 
 Authentication: JSON Web Tokens (JWT)
 
-Password Security: bcrypt
+Security: bcrypt (Password Hashing), Cookie-Parser
+
+Environment Variables: dotenv
 
 Getting Started
-To run this project locally, follow the steps below.
+Follow these instructions to set up and run the project on your local machine.
 
-Prerequisites:
+Prerequisites
+Node.js: Version 16.x or higher
 
-Node.js (v16 or higher)
+MongoDB: A running instance (local or cloud)
 
-MongoDB
+MQTT Broker: A running instance (e.g., Mosquitto, HiveMQ)
 
-An MQTT Broker (e.g., Mosquitto)
-
-Installation Steps:
-
-Install dependencies:
+Installation Guide
+Install Dependencies
 
 npm install
 
-Create an environment file: Create a file named .env in the project root and populate it with your configuration details. You can use .env.example as a template.
+Configure Environment Variables Create a .env file in the root directory and add the following configuration. Use the .env.example file as a template.
 
-# .env.example
+# Server Configuration
+PORT=2000
 
-# MongoDB Connection URI
+# MongoDB Connection String
 MONGODB_URI=mongodb://localhost:27017/smart_greenhouse
 
-# JWT Secrets (use strong, random strings)
-ACCESS_TOKEN_SECRET=your_strong_access_token_secret
-REFRESH_TOKEN_SECRET=your_strong_refresh_token_secret
+# JWT Authentication Secrets (Use strong, random strings)
+ACCESS_TOKEN_SECRET=your_super_strong_access_token_secret
+REFRESH_TOKEN_SECRET=your_super_strong_refresh_token_secret
 
 # MQTT Broker URL
 MQTT_BROKER_URL=mqtt://localhost:1883
 
-# Server Port
-PORT=2000
-
-Run the server:
+Run the Server
 
 npm start
 
-The server will be running on the port specified in your .env file (default: 2000).
+The server is now running at http://localhost:2000 (or the port you specified).
 
 API Endpoints
+All protected routes require a valid JWT accessToken sent via cookies.
+
 Authentication (/auth)
-POST /auth/register: Register a new user.
 
-POST /auth/login: Log in a user and receive tokens in cookies.
+POST /auth/register (Public): Register a new user.
 
-POST /auth/refresh: Refresh an expired access token.
+POST /auth/login (Public): Log in and receive auth tokens in cookies.
 
-POST /auth/logout: Log out the user and clear the session.
+POST /auth/refresh (Public): Use a valid refresh token to get a new access token.
+
+POST /auth/logout (Public): Log out and clear the session.
 
 Sensor Data
-GET /sensor-summary/:deviceId: Get summary statistics (average, count) for a specific device.
 
-GET /sensor-last10/:deviceId: Get the last 10 sensor data records for a specific device.
+GET /sensor-summary/:deviceId (Private): Get summary statistics for a specific device.
+
+GET /sensor-last10/:deviceId (Private): Get the last 10 data records for a device.
 
 Control
-GET /get-control: Get the current status of actuators (fan, lamp).
 
-POST /set-control: Set a new status for the actuators.
+GET /get-control (Private): Get the current status of actuators (fan, lamp).
+
+POST /set-control (Private): Set a new status for the actuators.
 
 Reporting
-GET /reports/:deviceId: Generate a statistical report for a device within a date range.
 
-Query Params: startDate (e.g., 2025-09-01), endDate (e.g., 2025-09-30).
+GET /reports/:deviceId (Private): Generate a report for a device. Requires startDate and endDate query parameters.
 
 Programmer
 Shady Nikooei
