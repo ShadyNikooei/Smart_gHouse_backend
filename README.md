@@ -2,7 +2,6 @@
 
 This repository contains the backend for a **Smart Greenhouse System** designed for remote monitoring and control of environmental conditions. The backend is built on an IoT architecture using the MQTT protocol for hardware communication and a REST API with WebSockets for client-side interaction.  
 
----
 
 ## Key Features
 
@@ -24,7 +23,6 @@ This repository contains the backend for a **Smart Greenhouse System** designed 
 - **Modular and Scalable Architecture**  
   Organized structure (controllers, models, routes) for easy development and maintenance.  
 
----
 
 ## Technology Stack
 
@@ -36,7 +34,6 @@ This repository contains the backend for a **Smart Greenhouse System** designed 
 - Authentication: **JWT (Access & Refresh Tokens)**  
 - Password Security: **bcrypt**  
 
----
 
 ## Project Architecture
 
@@ -45,7 +42,6 @@ This repository contains the backend for a **Smart Greenhouse System** designed 
 - **Web Client (Frontend):** Communicates with the backend via a secure REST API. Authenticated users can view live data via Socket.io and send control commands.  
 - **Command Dispatch:** Backend publishes user control commands to MQTT topics, which hardware devices execute.  
 
----
 
 ## Getting Started
 
@@ -80,7 +76,6 @@ This repository contains the backend for a **Smart Greenhouse System** designed 
   ```
 - Server will be running at the port specified in `.env` (default: 2000).  
 
----
 
 ## API Endpoints
 
@@ -102,7 +97,6 @@ This repository contains the backend for a **Smart Greenhouse System** designed 
 - `GET /reports/:deviceId` – Generate statistical report for a device  
   - Query Params: `startDate=YYYY-MM-DD`, `endDate=YYYY-MM-DD`  
 
----
 
 ## Programmer
 - **Shady Nikooei**  
