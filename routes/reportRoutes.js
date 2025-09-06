@@ -2,10 +2,10 @@
 const express = require('express');
 const router = express.Router();
 const { generateReport } = require('../controllers/reportController');
-const { authenticateToken } = require('../middleware/auth'); // Secure the endpoint
+const { authenticateToken } = require('../middleware/auth');
 
-// Defines the GET endpoint for generating reports.
-// Example usage: GET /reports/mydevice123?startDate=2025-09-01&endDate=2025-09-30
-router.get('/reports/:deviceId', authenticateToken, generateReport);
+// Route updated for single-device setup. Date range passed as query parameters.
+// Example usage: GET /reports?startDate=2025-09-01&endDate=2025-09-30
+router.get('/reports', authenticateToken, generateReport);
 
 module.exports = router;

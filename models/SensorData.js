@@ -1,43 +1,35 @@
-// models/SensorData.js 
+// models/SensorData.js
 const mongoose = require('mongoose');
 
-// Define the schema once. This structure will be used for all device collections.
-const sensorDataSchema = new mongoose.Schema({
-  temperature: { type: Number, required: true },
-  humidity: { type: Number, required: true },
-  soil: { type: Number, required: true },
-  relay1: { type: Number, required: true },
-  relay2: { type: Number, required: true },
-  timestamp: { type: Date, default: Date.now }
-});
-
-// A cache to store created models to avoid recompiling them on every request.
-const models = {};
-
 /**
- * Factory function to get or create a Mongoose model for a specific device.
- * This allows storing data for each device in a separate collection.
- * @param {string} deviceId - The unique identifier for the device.
- * @returns {mongoose.Model} - The Mongoose model for the device's collection.
+ * Base schema structure for a single sensor reading.
+ * Since we assume a single device, deviceId is not required.
  */
-function getSensorModel(deviceId) {
-  if (!deviceId) {
-    throw new Error('Device ID is required to get the sensor model.');
-  }
+const metricSchemaDefinition = {
+    value: {
+        type: Number,
+        required: true
+    },
+    timestamp: {
+        type: Date,
+        default: Date.now,
+        index: true // Index for fast time-series queries
+    }
+};
 
-  // Create a dynamic collection name based on the device ID.
-  const collectionName = `device_${deviceId}_data`;
+// --- Create individual models for each sensor type ---
 
-  // If the model is already in our cache, return it immediately.
-  if (models[collectionName]) {
-    return models[collectionName];
-  }
+const TemperatureDataSchema = new mongoose.Schema(metricSchemaDefinition);
+const TemperatureModel = mongoose.model('TemperatureData', TemperatureDataSchema);
 
-  // Otherwise, create a new model, add it to the cache, and return it.
-  const SensorModel = mongoose.model(collectionName, sensorDataSchema);
-  models[collectionName] = SensorModel;
-  
-  return SensorModel;
-}
+const HumidityDataSchema = new mongoose.Schema(metricSchemaDefinition);
+const HumidityModel = mongoose.model('HumidityData', HumidityDataSchema);
 
-module.exports = getSensorModel;
+const SoilMoistureDataSchema = new mongoose.Schema(metricSchemaDefinition);
+const SoilModel = mongoose.model('SoilMoistureData', SoilMoistureDataSchema);
+
+module.exports = {
+    TemperatureModel,
+    HumidityModel,
+    SoilModel
+};
