@@ -21,8 +21,6 @@ This repository contains the backend for a Smart Greenhouse System designed for 
 
 - **Reporting System**: Generate detailed statistical reports (average, minimum, maximum, count) for any sensor over custom date ranges using MongoDB's aggregation framework.
 
-- **GPS Location Tracking Support**: The infrastructure is designed to receive, store, and serve GPS location data (latitude, longitude, altitude) from the hardware.
-
 - **Modular & Scalable Architecture**: Logically separated controllers, models, and routes make the codebase easy to maintain, test, and extend.
 
 
