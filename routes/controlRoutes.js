@@ -5,10 +5,12 @@ const { body } = require('express-validator');
 const { getControl, setControl } = require('../controllers/controlController');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
-// Validation for control update
+// --- UPDATED: Added validation for pump and valve ---
 const controlValidation = [
-  body('fan').optional().isNumeric().withMessage('fan must be numeric (0/1)'),
-  body('lamp').optional().isNumeric().withMessage('lamp must be numeric (0/1)')
+    body('fan').optional().isNumeric().withMessage('fan must be numeric (0/1)'),
+    body('lamp').optional().isNumeric().withMessage('lamp must be numeric (0/1)'),
+    body('pump').optional().isNumeric().withMessage('pump must be numeric (0/1)'),
+    body('valve').optional().isNumeric().withMessage('valve must be numeric (0/1)')
 ];
 
 // Public: get current control (IoT device can poll)
