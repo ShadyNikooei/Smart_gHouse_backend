@@ -3,13 +3,13 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// Define separate secrets and durations for access and refresh tokens for better security.
+// Define separate secrets and durations for access and refresh tokens
 const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET || 'access-secret-key-!@#$';
 const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || 'refresh-secret-key-!@#$';
-const accessTokenExpiresIn = '15m';  // Short-lived for security
-const refreshTokenExpiresIn = '7d'; // Long-lived for better UX
+const accessTokenExpiresIn = '15m';  // short-lived
+const refreshTokenExpiresIn = '7d';  // long-lived
 
-// User registration logic (remains the same).
+// ====================== Register ======================
 async function register(req, res) {
   try {
     const { username, password, role } = req.body;
@@ -28,7 +28,8 @@ async function register(req, res) {
   }
 }
 
-// User login logic, updated to use httpOnly cookies.
+// ====================== Login ======================
+// Updated: returns tokens in cookies AND response body (important for Postman/mobile clients).
 async function login(req, res) {
   try {
     const { username, password } = req.body;
@@ -40,70 +41,72 @@ async function login(req, res) {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(400).send({ message: 'Invalid credentials' });
 
-    // Create both access and refresh tokens.
+    // Create access and refresh tokens
     const userPayload = { id: user._id, username: user.username, role: user.role };
     const accessToken = jwt.sign(userPayload, accessTokenSecret, { expiresIn: accessTokenExpiresIn });
     const refreshToken = jwt.sign(userPayload, refreshTokenSecret, { expiresIn: refreshTokenExpiresIn });
 
-    // Save the refresh token to the database to manage sessions.
+    // Save refresh token in DB
     user.refreshToken = refreshToken;
     await user.save();
 
-    // Set tokens in secure, httpOnly cookies.
-    res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60 * 1000 }); // 15 minutes
-    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 }); // 7 days
+    // Store tokens in secure, httpOnly cookies
+    res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60 * 1000 });
+    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
 
-    res.status(200).send({ message: 'Login successful' });
+    // Also return tokens in JSON response
+    res.status(200).send({
+      message: 'Login successful',
+      accessToken,
+      refreshToken
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send({ message: 'Server error' });
   }
 }
 
-// New function to refresh the access token using the refresh token.
+// ====================== Refresh Token ======================
 async function refreshToken(req, res) {
-    const token = req.cookies.refreshToken;
-    if (!token) return res.status(401).send({ message: 'No refresh token provided' });
+  const token = req.cookies.refreshToken;
+  if (!token) return res.status(401).send({ message: 'No refresh token provided' });
 
-    try {
-        const decoded = jwt.verify(token, refreshTokenSecret);
-        const user = await User.findById(decoded.id);
+  try {
+    const decoded = jwt.verify(token, refreshTokenSecret);
+    const user = await User.findById(decoded.id);
 
-        // Verify that the refresh token from the cookie matches the one in the DB.
-        if (!user || user.refreshToken !== token) {
-            return res.status(403).send({ message: 'Invalid refresh token' });
-        }
-
-        // Issue a new access token.
-        const userPayload = { id: user._id, username: user.username, role: user.role };
-        const newAccessToken = jwt.sign(userPayload, accessTokenSecret, { expiresIn: accessTokenExpiresIn });
-
-        res.cookie('accessToken', newAccessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60 * 1000 });
-        res.status(200).send({ message: 'Token refreshed' });
-    } catch (err) {
-        return res.status(403).send({ message: 'Invalid refresh token' });
+    if (!user || user.refreshToken !== token) {
+      return res.status(403).send({ message: 'Invalid refresh token' });
     }
+
+    const userPayload = { id: user._id, username: user.username, role: user.role };
+    const newAccessToken = jwt.sign(userPayload, accessTokenSecret, { expiresIn: accessTokenExpiresIn });
+
+    res.cookie('accessToken', newAccessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60 * 1000 });
+    res.status(200).send({
+      message: 'Token refreshed',
+      accessToken: newAccessToken
+    });
+  } catch (err) {
+    return res.status(403).send({ message: 'Invalid refresh token' });
+  }
 }
 
-// New function for user logout.
+// ====================== Logout ======================
 async function logout(req, res) {
-    const token = req.cookies.refreshToken;
-    if (token) {
-        try {
-            const decoded = jwt.verify(token, refreshTokenSecret);
-            // Clear the refresh token from the database to invalidate the session.
-            await User.updateOne({ _id: decoded.id }, { $unset: { refreshToken: "" } });
-        } catch (err) {
-            // Ignore error if token is invalid, just clear cookies.
-        }
+  const token = req.cookies.refreshToken;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, refreshTokenSecret);
+      await User.updateOne({ _id: decoded.id }, { $unset: { refreshToken: "" } });
+    } catch (err) {
+      // ignore error if token invalid
     }
+  }
 
-    // Clear the cookies on the client side.
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
-    res.status(200).send({ message: 'Logged out successfully' });
+  res.clearCookie('accessToken');
+  res.clearCookie('refreshToken');
+  res.status(200).send({ message: 'Logged out successfully' });
 }
-
 
 module.exports = { register, login, refreshToken, logout };
-
