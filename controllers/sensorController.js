@@ -1,6 +1,6 @@
 // controllers/sensorController.js
 // Import new specific models
-const { TemperatureModel, HumidityModel, SoilModel } = require('../models/SensorMetrics');
+const { TemperatureModel, HumidityModel, SoilModel } = require('../models/SensorData');
 
 /**
  * Gets a summary of current sensor data (last reading) for the single greenhouse.

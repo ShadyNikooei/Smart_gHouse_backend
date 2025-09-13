@@ -1,6 +1,6 @@
 // mqttClient.js
 const mqtt = require('mqtt');
-const { TemperatureModel, HumidityModel, SoilModel } = require('./models/SensorMetrics');
+const { TemperatureModel, HumidityModel, SoilModel } = require('./models/SensorData');
 
 // --- UPDATED: Defined new topics ---
 const MQTT_SENSOR_TEMPERATURE_TOPIC = 'greenhouse/temperature';
