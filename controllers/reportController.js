@@ -1,5 +1,5 @@
 // controllers/reportController.js
-const { TemperatureModel, HumidityModel, SoilModel } = require('../models/SensorData');
+const { TemperatureModel, HumidityModel, SoilModel } = require('../models/SensorData.js');
 
 /**
  * Generates a statistical report (avg, min, max) over a date range for the single device.
