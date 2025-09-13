@@ -1,0 +1,192 @@
+{
+  "info": {
+    "_postman_id": "a7c1f8f6-4b3a-4d42-bbbc-9876543210ab",
+    "name": "Smart Greenhouse API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"123456\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "http://37.152.181.124:2000/auth/register",
+              "protocol": "http",
+              "host": ["37.152.181.124"],
+              "port": "2000",
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "http://37.152.181.124:2000/auth/login",
+              "protocol": "http",
+              "host": ["37.152.181.124"],
+              "port": "2000",
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://37.152.181.124:2000/auth/refresh",
+              "protocol": "http",
+              "host": ["37.152.181.124"],
+              "port": "2000",
+              "path": ["auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://37.152.181.124:2000/auth/logout",
+              "protocol": "http",
+              "host": ["37.152.181.124"],
+              "port": "2000",
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sensors",
+      "item": [
+        {
+          "name": "Get Sensor Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://37.152.181.124:2000/sensor-summary",
+              "protocol": "http",
+              "host": ["37.152.181.124"],
+              "port": "2000",
+              "path": ["sensor-summary"]
+            }
+          }
+        },
+        {
+          "name": "Get Last 10 Records",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://37.152.181.124:2000/sensor-last10",
+              "protocol": "http",
+              "host": ["37.152.181.124"],
+              "port": "2000",
+              "path": ["sensor-last10"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Control",
+      "item": [
+        {
+          "name": "Get Current Control",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://37.152.181.124:2000/get-control",
+              "protocol": "http",
+              "host": ["37.152.181.124"],
+              "port": "2000",
+              "path": ["get-control"]
+            }
+          }
+        },
+        {
+          "name": "Set Control (fan/lamp/pump/valve)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fan\": 1,\n  \"lamp\": 0,\n  \"pump\": 1,\n  \"valve\": 0\n}"
+            },
+            "url": {
+              "raw": "http://37.152.181.124:2000/set-control",
+              "protocol": "http",
+              "host": ["37.152.181.124"],
+              "port": "2000",
+              "path": ["set-control"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Get Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://37.152.181.124:2000/reports?startDate=2025-09-01&endDate=2025-09-13",
+              "protocol": "http",
+              "host": ["37.152.181.124"],
+              "port": "2000",
+              "path": ["reports"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2025-09-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2025-09-13"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
