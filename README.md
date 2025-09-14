@@ -130,6 +130,29 @@ The server will be available at `http://localhost:2000`.
 ### Topics Published To by Backend (Outgoing Commands)
 - `greenhouse/control/command`: For sending control commands to hardware.
 
+---
+
+## Outputs
+
+### Postman API Tests
+<div align="center">
+  <img src="./test/postman_login.png" alt="Postman Login" width="30%" style="margin: 0 1%;" />
+  <img src="./test/postman_refresh.png" alt="Postman Refresh" width="30%" style="margin: 0 1%;" />
+  <img src="./test/postman_controls.png" alt="Postman Controls" width="30%" style="margin: 0 1%;" />
+</div>
+
+### MongoDB Collections test
+<div align="center">
+  <img src="./test/mongo_tables.png" alt="MongoDB Tables" width="30%" style="margin: 0 1%;" />
+  <img src="./test/mongo_users.png" alt="MongoDB Users" width="30%" style="margin: 0 1%;" />
+  <img src="./test/mongo_sensordata.png" alt="MongoDB Sensors Data" width="30%" style="margin: 0 1%;" />
+</div>
+
+### Server Logs test
+Example of server running with MQTT and MongoDB connections:
+![Server Logs](./test/server_logs.png)
+
+---
 
 ## Programmer
 **Shady Nikooei**
