@@ -51,8 +51,21 @@ async function login(req, res) {
     await user.save();
 
     // Store tokens in secure, httpOnly cookies
-    res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60 * 1000 });
-    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
+    //res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60 * 1000 });
+    //res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
+    // Set access token cookie (short-lived)
+    res.cookie('accessToken', accessToken, { 
+      httpOnly: true,              // Prevent client-side JS from reading the cookie
+      secure: false,               // Disable Secure for testing on plain HTTP (must be true in production with HTTPS)
+      maxAge: 15 * 60 * 1000       // 15 minutes
+    });
+
+    // Set refresh token cookie (long-lived)
+    res.cookie('refreshToken', refreshToken, { 
+      httpOnly: true,              // Prevent client-side JS from reading the cookie
+      secure: false,               // Disable Secure for testing on plain HTTP (must be true in production with HTTPS)
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
 
     // Also return tokens in JSON response
     res.status(200).send({
@@ -85,7 +98,13 @@ async function refreshToken(req, res) {
     const userPayload = { id: user._id, username: user.username, role: user.role };
     const newAccessToken = jwt.sign(userPayload, accessTokenSecret, { expiresIn: accessTokenExpiresIn });
 
-    res.cookie('accessToken', newAccessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60 * 1000 });
+    // res.cookie('accessToken', newAccessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60 * 1000 });
+    res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: false,   // force disable Secure while testing with plain HTTP
+            maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
     res.status(200).send({
       message: 'Token refreshed',
       accessToken: newAccessToken

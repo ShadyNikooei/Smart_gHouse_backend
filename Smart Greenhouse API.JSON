@@ -1,9 +1,15 @@
 {
   "info": {
     "_postman_id": "a7c1f8f6-4b3a-4d42-bbbc-9876543210ab",
-    "name": "Smart Greenhouse API",
+    "name": "Smart Greenhouse API (Auto Auth Fixed)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    { "key": "baseUrl", "value": "http://37.152.181.124:2000" },
+    { "key": "username", "value": "admin" },
+    { "key": "password", "value": "123456" },
+    { "key": "role", "value": "admin" }
+  ],
   "item": [
     {
       "name": "Auth",
@@ -13,58 +19,107 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"123456\",\n  \"role\": \"admin\"\n}"
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"{{role}}\"\n}"
             },
             "url": {
-              "raw": "http://37.152.181.124:2000/auth/register",
-              "protocol": "http",
-              "host": ["37.152.181.124"],
-              "port": "2000",
-              "path": ["auth", "register"]
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth","register"]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('User registered', function(){",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200,201]);",
+                  "});",
+                  "pm.environment.set('username', pm.variables.get('username'));",
+                  "pm.environment.set('password', pm.variables.get('password'));",
+                  "pm.environment.set('role', pm.variables.get('role'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Login",
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"123456\"\n}"
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
             },
             "url": {
-              "raw": "http://37.152.181.124:2000/auth/login",
-              "protocol": "http",
-              "host": ["37.152.181.124"],
-              "port": "2000",
-              "path": ["auth", "login"]
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth","login"]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.accessToken) pm.environment.set('accessToken', res.accessToken);",
+                  "if (res.refreshToken) pm.environment.set('refreshToken', res.refreshToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const jar = pm.cookies.jar();",
+                  "const rt = pm.environment.get('refreshToken');",
+                  "if (rt) {",
+                  "  jar.set('http://37.152.181.124:2000', 'refreshToken', rt, function (err) {",
+                  "    if (err) console.log('Error setting cookie:', err);",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const res = pm.response.json();",
+                  "  if (res.accessToken) pm.environment.set('accessToken', res.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "" },
             "url": {
-              "raw": "http://37.152.181.124:2000/auth/refresh",
-              "protocol": "http",
-              "host": ["37.152.181.124"],
-              "port": "2000",
-              "path": ["auth", "refresh"]
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth","refresh"]
             }
           }
         },
@@ -74,13 +129,23 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "http://37.152.181.124:2000/auth/logout",
-              "protocol": "http",
-              "host": ["37.152.181.124"],
-              "port": "2000",
-              "path": ["auth", "logout"]
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth","logout"]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.environment.unset('accessToken');",
+                  "pm.environment.unset('refreshToken');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ]
     },
@@ -91,12 +156,12 @@
           "name": "Get Sensor Summary",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
             "url": {
-              "raw": "http://37.152.181.124:2000/sensor-summary",
-              "protocol": "http",
-              "host": ["37.152.181.124"],
-              "port": "2000",
+              "raw": "{{baseUrl}}/sensor-summary",
+              "host": ["{{baseUrl}}"],
               "path": ["sensor-summary"]
             }
           }
@@ -105,12 +170,12 @@
           "name": "Get Last 10 Records",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
             "url": {
-              "raw": "http://37.152.181.124:2000/sensor-last10",
-              "protocol": "http",
-              "host": ["37.152.181.124"],
-              "port": "2000",
+              "raw": "{{baseUrl}}/sensor-last10",
+              "host": ["{{baseUrl}}"],
               "path": ["sensor-last10"]
             }
           }
@@ -124,35 +189,31 @@
           "name": "Get Current Control",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
             "url": {
-              "raw": "http://37.152.181.124:2000/get-control",
-              "protocol": "http",
-              "host": ["37.152.181.124"],
-              "port": "2000",
+              "raw": "{{baseUrl}}/get-control",
+              "host": ["{{baseUrl}}"],
               "path": ["get-control"]
             }
           }
         },
         {
-          "name": "Set Control (fan/lamp/pump/valve)",
+          "name": "Set Control",
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fan\": 1,\n  \"lamp\": 0,\n  \"pump\": 1,\n  \"valve\": 0\n}"
             },
             "url": {
-              "raw": "http://37.152.181.124:2000/set-control",
-              "protocol": "http",
-              "host": ["37.152.181.124"],
-              "port": "2000",
+              "raw": "{{baseUrl}}/set-control",
+              "host": ["{{baseUrl}}"],
               "path": ["set-control"]
             }
           }
@@ -166,22 +227,16 @@
           "name": "Get Report",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
             "url": {
-              "raw": "http://37.152.181.124:2000/reports?startDate=2025-09-01&endDate=2025-09-13",
-              "protocol": "http",
-              "host": ["37.152.181.124"],
-              "port": "2000",
+              "raw": "{{baseUrl}}/reports?startDate=2025-09-01&endDate=2025-09-13",
+              "host": ["{{baseUrl}}"],
               "path": ["reports"],
               "query": [
-                {
-                  "key": "startDate",
-                  "value": "2025-09-01"
-                },
-                {
-                  "key": "endDate",
-                  "value": "2025-09-13"
-                }
+                { "key": "startDate", "value": "2025-09-01" },
+                { "key": "endDate", "value": "2025-09-13" }
               ]
             }
           }
