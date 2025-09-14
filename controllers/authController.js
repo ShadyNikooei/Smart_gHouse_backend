@@ -68,7 +68,10 @@ async function login(req, res) {
 
 // ====================== Refresh Token ======================
 async function refreshToken(req, res) {
-  const token = req.cookies.refreshToken;
+
+  console.log("Cookies received in refresh:", req.cookies);
+
+  const token = req.cookies.refreshToken || req.body.refreshToken;
   if (!token) return res.status(401).send({ message: 'No refresh token provided' });
 
   try {
