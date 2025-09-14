@@ -150,7 +150,7 @@ The server will be available at `http://localhost:2000`.
 
 ### Server Logs test
 Example of server running with MQTT and MongoDB connections:
-![Server Logs](./test/server_logs.png)
+![Server Logs](./test/server_log.png)
 
 ---
 
