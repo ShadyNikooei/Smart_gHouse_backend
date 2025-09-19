@@ -6,68 +6,62 @@ const mongoose = require('mongoose');
 const http = require('http');
 const cors = require('cors');
 const { Server } = require('socket.io');
-const cookieParser = require('cookie-parser'); // <-- 1. Added to read cookies
+const cookieParser = require('cookie-parser');
 
-// Import MQTT Client
-const { initializeMqttClient } = require('./mqttClient'); // <-- 2. Added to connect to MQTT
+const { initializeMqttClient } = require('./mqttClient');
 
-// Import routes
+// Routes
 const authRoutes = require('./routes/authRoutes');
 const sensorRoutes = require('./routes/sensorRoutes');
 const controlRoutes = require('./routes/controlRoutes');
-const reportRoutes = require('./routes/reportRoutes'); // <-- 3. Added for the reporting feature
+const reportRoutes = require('./routes/reportRoutes');
+const gpsRoutes = require('./routes/gpsRoutes'); // NEW
 
 const app = express();
 const port = process.env.PORT || 2000;
 
 app.use(cors({
-    origin: true, // or specify your frontend URL e.g., 'http://localhost:3000'
-    credentials: true // Important for cookies
+  origin: true,
+  credentials: true
 }));
 app.use(bodyParser.json());
-app.use(cookieParser()); // <-- 1. Used as middleware
+app.use(cookieParser());
 
-// Create HTTP server and attach socket.io
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
-    cors: {
-        origin: '*'
-    }
+  cors: {
+    origin: '*'
+  }
 });
 
-// Make io available globally
 app.locals.io = io;
 
-// Initialize MQTT Client and make it available globally
-const mqttClient = initializeMqttClient(io); // <-- 2. MQTT client initialized
-app.locals.mqttClient = mqttClient;          // <-- 2. Made MQTT client available to controllers
+const mqttClient = initializeMqttClient(io);
+app.locals.mqttClient = mqttClient;
 
-// Connect to MongoDB
 const uri = process.env.MONGODB_URI;
 if (!uri) {
-    console.error('MONGODB_URI not set in environment');
-    process.exit(1);
+  console.error('MONGODB_URI not set in environment');
+  process.exit(1);
 }
 
 mongoose.connect(uri)
-    .then(() => console.log('MongoDB connected'))
-    .catch(err => console.error('MongoDB connection error:', err));
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
-// Routes
 app.use('/auth', authRoutes);
 app.use('/', sensorRoutes);
 app.use('/', controlRoutes);
-app.use('/', reportRoutes); // <-- 3. Reporting route added to the server
+app.use('/', reportRoutes);
+app.use('/', gpsRoutes); // NEW
 
-// Socket.io connection logging
 io.on('connection', (socket) => {
-    console.log('Socket connected:', socket.id);
-    socket.on('disconnect', () => {
-        console.log('Socket disconnected:', socket.id);
-    });
+  console.log('Socket connected:', socket.id);
+  socket.on('disconnect', () => {
+    console.log('Socket disconnected:', socket.id);
+  });
 });
 
-// Start server
 httpServer.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });
