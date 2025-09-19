@@ -55,15 +55,15 @@ async function login(req, res) {
     //res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
     // Set access token cookie (short-lived)
     res.cookie('accessToken', accessToken, { 
-      httpOnly: true,              // Prevent client-side JS from reading the cookie
-      secure: false,               // Disable Secure for testing on plain HTTP (must be true in production with HTTPS)
+      //httpOnly: true,              // Prevent client-side JS from reading the cookie
+      //secure: false,               // Disable Secure for testing on plain HTTP (must be true in production with HTTPS)
       maxAge: 15 * 60 * 1000       // 15 minutes
     });
-
+    
     // Set refresh token cookie (long-lived)
     res.cookie('refreshToken', refreshToken, { 
-      httpOnly: true,              // Prevent client-side JS from reading the cookie
-      secure: false,               // Disable Secure for testing on plain HTTP (must be true in production with HTTPS)
+      //httpOnly: true,              // Prevent client-side JS from reading the cookie
+      //secure: false,               // Disable Secure for testing on plain HTTP (must be true in production with HTTPS)
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
@@ -99,9 +99,14 @@ async function refreshToken(req, res) {
     const newAccessToken = jwt.sign(userPayload, accessTokenSecret, { expiresIn: accessTokenExpiresIn });
 
     // res.cookie('accessToken', newAccessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60 * 1000 });
+    // Set cookies again with updated accessToken
+    res.cookie('accessToken', newAccessToken, {
+      maxAge: 15 * 60 * 1000 // 15 minutes
+    });
+    
     res.cookie('refreshToken', refreshToken, {
-            httpOnly: true,
-            secure: false,   // force disable Secure while testing with plain HTTP
+            //httpOnly: true,
+            //secure: false,   // force disable Secure while testing with plain HTTP
             maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
