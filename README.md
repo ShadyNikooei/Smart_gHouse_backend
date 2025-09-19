@@ -189,30 +189,22 @@ The server will be available at `http://localhost:2000`.
 ## Outputs
 
 ### Postman API Tests
-
-::: {align="center"}
-`<img src="./test/postman_login.png" alt="Postman Login" width="30%" style="margin: 0 1%;" />`{=html}
-`<img src="./test/postman_refresh.png" alt="Postman Refresh" width="30%" style="margin: 0 1%;" />`{=html}
-`<img src="./test/postman_controls.png" alt="Postman Controls" width="30%" style="margin: 0 1%;" />`{=html}
-:::
+<div align="center">
+  <img src="./test/postman_login.png" alt="Postman Login" width="30%" style="margin: 0 1%;" />
+  <img src="./test/postman_refresh.png" alt="Postman Refresh" width="30%" style="margin: 0 1%;" />
+  <img src="./test/postman_controls.png" alt="Postman Controls" width="30%" style="margin: 0 1%;" />
+</div>
 
 ### MongoDB Collections test
-
-::: {align="center"}
-`<img src="./test/mongo_tables.png" alt="MongoDB Tables" width="30%" style="margin: 0 1%;" />`{=html}
-`<img src="./test/mongo_users.png" alt="MongoDB Users" width="30%" style="margin: 0 1%;" />`{=html}
-`<img src="./test/mongo_sensordata.png" alt="MongoDB Sensors Data" width="30%" style="margin: 0 1%;" />`{=html}
-:::
-
-*Additionally stored collections:* - `users` - `TemperatureData`,
-`HumidityData`, `SoilMoistureData` - `GpsData`
+<div align="center">
+  <img src="./test/mongo_tables.png" alt="MongoDB Tables" width="30%" style="margin: 0 1%;" />
+  <img src="./test/mongo_users.png" alt="MongoDB Users" width="30%" style="margin: 0 1%;" />
+  <img src="./test/mongo_sensordata.png" alt="MongoDB Sensors Data" width="30%" style="margin: 0 1%;" />
+</div>
 
 ### Server Logs test
-
-Example of server running with MQTT and MongoDB connections: ![Server
-Logs](./test/server_log.png)
-
-**Console Log Example**
+Example of server running with MQTT and MongoDB connections:
+![Server Logs](./test/server_log.png)
 
 ``` bash
 MongoDB connected
