@@ -1,15 +1,12 @@
 // routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
-// Import new controller functions for refresh and logout.
-const { register, login, logout } = require('../controllers/authController');
 
-// Public auth endpoints
-router.post('/register', register);
-router.post('/login', login);
+const authController = require('../controllers/authController');
 
-// New endpoints for session management
-//router.post('/refresh', refreshToken); // To get a new access token
-router.post('/logout', logout);       // To end the user session
+router.post('/register', authController.register);
+router.post('/login', authController.login);
+router.post('/logout', authController.logout);
 
 module.exports = router;
+
