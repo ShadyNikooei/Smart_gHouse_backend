@@ -17,6 +17,33 @@ const controlRoutes = require('./routes/controlRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const gpsRoutes = require('./routes/gpsRoutes'); // NEW
 
+// === Redirect non-API GET requests to the frontend origin (Scenario A) ===
+const FRONT_ORIGIN = process.env.FRONT_ORIGIN || 'http://37.152.181.124:3000';
+
+// Whitelisted API paths exactly matching your current routers
+const API_PREFIXES = [
+  '/auth/',           // POST /auth/register | /auth/login | /auth/logout
+  '/sensor-summary',  // GET
+  '/sensor-last10',   // GET
+  '/get-control',     // GET
+  '/set-control',     // POST
+  '/reports',         // GET ?startDate=&endDate=
+  '/gps-latest'       // GET
+];
+
+// Apply only to GET navigation requests so preflight/POSTs aren’t affected
+app.get('*', (req, res, next) => {
+  // If the path is one of the API endpoints, let it pass through
+  const isApi = API_PREFIXES.some(p =>
+    req.path === p || req.path.startsWith(p)
+  );
+  if (isApi) return next();
+
+  // Otherwise, redirect any non-API route to the frontend host (preserve path & query)
+  return res.redirect(302, `${FRONT_ORIGIN}${req.originalUrl}`);
+});
+
+
 const app = express();
 const port = process.env.PORT || 2000;
 
