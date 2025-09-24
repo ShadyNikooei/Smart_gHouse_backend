@@ -82,6 +82,11 @@ async function authenticateToken(req, res, next) {
       dbUser.refreshToken = newRefreshToken;
       await dbUser.save();
 
+      // Set refreshToken as cookie with only expiration (no httpOnly, secure, etc.)
+    res.cookie('refreshToken', refreshToken, {
+      maxAge: 4 * 24 * 60 * 60 * 1000, // 4 days
+    });
+
       // Return only the new access token (DO NOT return refresh token to client)
       return res.status(202).json({
         code: 'TOKENS_ROTATED',
