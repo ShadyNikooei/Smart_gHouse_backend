@@ -14,7 +14,7 @@ const controlValidation = [
 ];
 
 // Public: get current control (IoT device can poll)
-router.get('/get-control', getControl);
+router.get('/get-control',authenticateToken, getControl);
 
 // Protected: set control (only authenticated users allowed; restrict to admin if needed)
 router.post('/set-control', authenticateToken, /* authorizeRole('admin'), // uncomment to require admin */ controlValidation, setControl);

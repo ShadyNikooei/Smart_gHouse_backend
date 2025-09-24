@@ -49,7 +49,7 @@ app.use('/', reportRoutes);
 app.use('/', gpsRoutes);
 
 // --- Redirect non-API GETs to frontend (AFTER routes) ---
-const FRONT_ORIGIN = process.env.FRONT_ORIGIN || 'http://37.152.181.124:3000';
+/*const FRONT_ORIGIN = process.env.FRONT_ORIGIN || 'http://37.152.181.124:3000';
 const API_PREFIXES = [
   '/auth/', '/sensor-summary', '/sensor-last10',
   '/get-control', '/set-control', '/reports', '/gps-latest'
@@ -60,7 +60,7 @@ app.get('*', (req, res, next) => {
   if (isApi) return next();
   return res.redirect(302, `${FRONT_ORIGIN}${req.originalUrl}`);
 });
-
+*/
 // --- start ---
 io.on('connection', (socket) => {
   console.log('Socket connected:', socket.id);
