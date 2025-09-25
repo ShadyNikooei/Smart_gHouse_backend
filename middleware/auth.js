@@ -2,8 +2,19 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET || 'access-secret-key-!@#$';
+// NOTE: For production, avoid fallback secrets.
+// Prefer failing fast if env vars are missing.
+const accessTokenSecret  = process.env.ACCESS_TOKEN_SECRET || 'access-secret-key-!@#$';
 const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || 'refresh-secret-key-!@#$';
+
+/**
+ * Public paths that should bypass authentication (e.g., auth endpoints).
+ * Add other public routes here if needed (e.g., /health or an IoT public endpoint).
+ */
+const PUBLIC_REGEX = [
+  /^\/auth(\/|$)/,
+  // Example: /^\/health$/,
+];
 
 /**
  * Middleware to authenticate a user using the Access Token.
@@ -82,10 +93,14 @@ async function authenticateToken(req, res, next) {
       dbUser.refreshToken = newRefreshToken;
       await dbUser.save();
 
-      // Set refreshToken as cookie with only expiration (no httpOnly, secure, etc.)
-    res.cookie('refreshToken', refreshToken, {
-      maxAge: 4 * 24 * 60 * 60 * 1000, // 4 days
-    });
+      // Set refreshToken as a secure, httpOnly cookie (mitigate XSS/CSRF)
+      res.cookie('refreshToken', newRefreshToken, {
+        maxAge: 4 * 24 * 60 * 60 * 1000, // 4 days
+        httpOnly: true,
+        secure: true,        // HTTPS only
+        sameSite: 'Strict',  // use 'None' if frontend is on a different domain and needs cookies
+        path: '/auth',       // limit cookie scope
+      });
 
       // Return only the new access token (DO NOT return refresh token to client)
       return res.status(202).json({
@@ -127,7 +142,27 @@ function authorizeRole(role) {
   };
 }
 
-module.exports = { authenticateToken, authorizeRole };
+/**
+ * Global Auth Guard
+ * -----------------
+ * Mount this once in server.js.
+ * - Every request passes here before hitting any route.
+ * - OPTIONS (CORS preflight) is allowed through.
+ * - Requests to PUBLIC_REGEX paths (e.g., /auth/*) bypass auth.
+ * - All other requests must pass authenticateToken.
+ */
+function globalAuthGuard(req, res, next) {
+  if (req.method === 'OPTIONS') return next();                // allow preflight
+  const isPublic = PUBLIC_REGEX.some((re) => re.test(req.path));
+  if (isPublic) return next();                                // skip auth for public paths
+  return authenticateToken(req, res, next);                   // enforce auth otherwise
+}
+
+module.exports = { authenticateToken, authorizeRole, globalAuthGuard };
+
+
+
+
 
 
 /*
