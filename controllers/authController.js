@@ -3,8 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-
-// Define separate secrets and durations for access and refresh tokens
+// Separate secrets and expirations
 const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET || 'access-secret-key-!@#$';
 const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || 'refresh-secret-key-!@#$';
 const accessTokenExpiresIn = '15m';
@@ -14,12 +13,14 @@ const refreshTokenExpiresIn = '4d';
 async function register(req, res) {
   try {
     const { username, password, role } = req.body;
-    if (!username || !password)
+    if (!username || !password) {
       return res.status(400).send({ message: 'username and password required' });
+    }
 
     const existing = await User.findOne({ username });
-    if (existing)
+    if (existing) {
       return res.status(400).send({ message: 'username already exists' });
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = new User({
@@ -29,10 +30,10 @@ async function register(req, res) {
     });
 
     await user.save();
-    res.status(201).send({ message: 'User created' });
+    return res.status(201).send({ message: 'User created' });
   } catch (err) {
     console.error(err);
-    res.status(500).send({ message: 'Server error' });
+    return res.status(500).send({ message: 'Server error' });
   }
 }
 
@@ -40,8 +41,9 @@ async function register(req, res) {
 async function login(req, res) {
   try {
     const { username, password } = req.body;
-    if (!username || !password)
+    if (!username || !password) {
       return res.status(400).send({ message: 'username and password required' });
+    }
 
     const user = await User.findOne({ username });
     if (!user) return res.status(400).send({ message: 'Invalid credentials' });
@@ -49,37 +51,26 @@ async function login(req, res) {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(400).send({ message: 'Invalid credentials' });
 
-    const payload = {
-      id: user._id,
-      username: user.username,
-      role: user.role,
-    };
+    const payload = { id: user._id, username: user.username, role: user.role };
 
-    const accessToken = jwt.sign(payload, accessTokenSecret, {
-      expiresIn: accessTokenExpiresIn,
-    });
-    const refreshToken = jwt.sign(payload, refreshTokenSecret, {
-      expiresIn: refreshTokenExpiresIn,
-    });
+    const accessToken = jwt.sign(payload, accessTokenSecret, { expiresIn: accessTokenExpiresIn });
+    const refreshToken = jwt.sign(payload, refreshTokenSecret, { expiresIn: refreshTokenExpiresIn });
 
-    // Store refresh token in DB for future rotation
+    // Persist refresh token for rotation/verification
     user.refreshToken = refreshToken;
     await user.save();
 
-    // Set refreshToken as cookie with only expiration (no httpOnly, secure, etc.)
-    res.cookie('refreshToken', refreshToken, {
-      maxAge: 4 * 24 * 60 * 60 * 1000, // 4 days
-    });
+    // Set cookies with ONLY time-based maxAge (per your request)
+    res.cookie('accessToken', accessToken, { maxAge: 15 * 60 * 1000 });            // 15 minutes
+    res.cookie('refreshToken', refreshToken, { maxAge: 4 * 24 * 60 * 60 * 1000 }); // 4 days
 
-    // Send accessToken only
-    res.status(200).json({
+    return res.status(200).json({
       message: 'Login successful',
-      accessToken,
+      accessToken, // keep for compatibility if frontend reads it; not strictly required
     });
-
   } catch (err) {
     console.error(err);
-    res.status(500).send({ message: 'Server error' });
+    return res.status(500).send({ message: 'Server error' });
   }
 }
 
@@ -89,19 +80,17 @@ async function logout(req, res) {
   if (token) {
     try {
       const decoded = jwt.verify(token, refreshTokenSecret);
-      await User.updateOne(
-        { _id: decoded.id },
-        { $unset: { refreshToken: '' } }
-      );
-    } catch (err) {
+      await User.updateOne({ _id: decoded.id }, { $unset: { refreshToken: '' } });
+    } catch {
       // ignore invalid token
     }
   }
 
+  // Clear cookies WITHOUT any extra flags (only names)
+  res.clearCookie('accessToken');
   res.clearCookie('refreshToken');
-  res.status(200).send({ message: 'Logged out successfully' });
+
+  return res.status(200).send({ message: 'Logged out successfully' });
 }
 
 module.exports = { register, login, logout };
-
-

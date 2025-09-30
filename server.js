@@ -1,3 +1,4 @@
+// server.js
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -6,33 +7,45 @@ const http = require('http');
 const cors = require('cors');
 const { Server } = require('socket.io');
 const cookieParser = require('cookie-parser');
-const { globalAuthGuard } = require('./middleware/auth');
+// const { globalAuthGuard } = require('./middleware/auth');
+// NOTE: globalAuthGuard is not mounted here. If you want a single guard for all routes,
+// you can import and mount it before the route registrations. See the commented section below.
 
 const { initializeMqttClient } = require('./mqttClient');
 
 // Routes
-const authRoutes   = require('./routes/authRoutes');
-const sensorRoutes = require('./routes/sensorRoutes');
-const controlRoutes= require('./routes/controlRoutes');
-const reportRoutes = require('./routes/reportRoutes');
-const gpsRoutes    = require('./routes/gpsRoutes');
+const authRoutes    = require('./routes/authRoutes');
+const sensorRoutes  = require('./routes/sensorRoutes');
+const controlRoutes = require('./routes/controlRoutes');
+const reportRoutes  = require('./routes/reportRoutes');
+const gpsRoutes     = require('./routes/gpsRoutes');
 
 // --- create app FIRST ---
 const app = express();
 const port = process.env.PORT || 2000;
 
+// Enable CORS for browser clients (credentials required for cookies)
 app.use(cors({ origin: true, credentials: true }));
+
+// Parse JSON bodies & cookies
 app.use(bodyParser.json());
 app.use(cookieParser());
 
+// --- OPTIONAL: Global Auth Guard (mount BEFORE routes) ---
+// If you decide to protect everything by default and whitelist only public paths,
+// uncomment the next line AFTER you ensure globalAuthGuard is exported properly.
+// app.use(globalAuthGuard);
+
 // socket.io / mqtt / db
 const httpServer = http.createServer(app);
+// NOTE: Socket.IO CORS is '*' here. If you need cookie-based auth on websockets, tighten this.
 const io = new Server(httpServer, { cors: { origin: '*' } });
 app.locals.io = io;
 
 const mqttClient = initializeMqttClient(io);
 app.locals.mqttClient = mqttClient;
 
+// MongoDB connection
 const uri = process.env.MONGODB_URI;
 if (!uri) {
   console.error('MONGODB_URI not set in environment');
@@ -50,7 +63,10 @@ app.use('/', reportRoutes);
 app.use('/', gpsRoutes);
 
 // --- Redirect non-API GETs to frontend (AFTER routes) ---
-/*const FRONT_ORIGIN = process.env.FRONT_ORIGIN || 'http://37.152.181.124:3000';
+// Keep this block commented if your frontend handles its own routing at a different origin.
+// If you want to forward unknown GETs to your SPA, configure FRONT_ORIGIN and uncomment below.
+/*
+const FRONT_ORIGIN = process.env.FRONT_ORIGIN || 'http://37.152.181.124:3000';
 const API_PREFIXES = [
   '/auth/', '/sensor-summary', '/sensor-last10',
   '/get-control', '/set-control', '/reports', '/gps-latest'
@@ -62,6 +78,7 @@ app.get('*', (req, res, next) => {
   return res.redirect(302, `${FRONT_ORIGIN}${req.originalUrl}`);
 });
 */
+
 // --- start ---
 io.on('connection', (socket) => {
   console.log('Socket connected:', socket.id);
