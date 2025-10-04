@@ -1,61 +1,108 @@
 // controllers/controlController.js
 const { validationResult } = require('express-validator');
-// Import topic constant from the unified mqttClient file
-const { MQTT_CONTROL_TOPIC } = require('../mqttClient'); 
+const ControlState = require('../models/ControlState');
+const { MQTT_CONTROL_TOPIC, MQTT_COLLEAGUE_CMD_SET_TOPIC } = require('../mqttClient');
 
-// --- UPDATED: Added pump and valve to the server's state object ---
-let controlData = {
-    fan: 1,
-    lamp: 0,
-    pump: 0,
-    valve: 0
-};
+const RETRY_LIMIT = 3;        // max re-publishes per command
+const RETRY_DELAY_MS = 1500;  // delay between retries if mismatch persists
 
-function getControl(req, res) {
-    res.status(200).json(controlData);
+// In-memory timers keyed by commandId (single-device). For multi-device, key by deviceId+commandId.
+let retryTimer = null;
+
+/**
+ * Shallow merge only provided numeric fields into target object (0/1).
+ */
+function applyDesiredPatch(target, patch) {
+  ['fan','lamp','pump','valve'].forEach(k => {
+    if (typeof patch[k] === 'number') target[k] = patch[k];
+  });
 }
 
-function setControl(req, res) {
-    // Validate request body
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+function statesEqual(a, b) {
+  return a.fan===b.fan && a.lamp===b.lamp && a.pump===b.pump && a.valve===b.valve;
+}
 
-    // --- UPDATED: Destructure new devices from request body ---
-    const { fan, lamp, pump, valve } = req.body;
-    const updatePayload = {}; // This payload will be sent to the hardware via MQTT
+async function ensureDoc() {
+  let doc = await ControlState.findOne();
+  if (!doc) doc = await ControlState.create({});
+  return doc;
+}
 
-    // Check for 'fan' and add it to the payload if present
-    if (typeof fan === 'number') {
-        controlData.fan = fan;
-        updatePayload.fan = fan;
-    }
-    // Check for 'lamp' and add it to the payload if present
-    if (typeof lamp === 'number') {
-        controlData.lamp = lamp;
-        updatePayload.lamp = lamp;
-    }
-    // --- UPDATED: Add logic for 'pump' and 'valve' ---
-    if (typeof pump === 'number') {
-        controlData.pump = pump;
-        updatePayload.pump = pump;
-    }
-    if (typeof valve === 'number') {
-        controlData.valve = valve;
-        updatePayload.valve = valve;
+async function getControl(req, res) {
+  const doc = await ensureDoc();
+  res.status(200).json({ desired: doc.desired, reported: doc.reported, commandId: doc.commandId });
+}
+
+async function setControl(req, res) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  const patch = req.body; // {fan?, lamp?, pump?, valve?}
+  const io = req.app.locals.io;
+  const mqttClient = req.app.locals.mqttClient;
+
+  const doc = await ensureDoc();
+
+  // Update desired with the provided patch
+  applyDesiredPatch(doc.desired, patch);
+
+  // Bump commandId, mark as pending, reset attempts
+  doc.commandId += 1;
+  doc.pendingCommand = true;
+  doc.attempts = 0;
+  await doc.save();
+
+  // Emit optimistic UI update
+  io?.emit('control_update', { ...doc.desired, commandId: doc.commandId, pending: true });
+
+  // Publish command to both topics
+  const msg = JSON.stringify({ ...patch }); // only changed fields (your existing behavior)
+  if (mqttClient && Object.keys(patch).length > 0) {
+    mqttClient.publish(MQTT_CONTROL_TOPIC, msg);
+    mqttClient.publish(MQTT_COLLEAGUE_CMD_SET_TOPIC, msg);
+  }
+
+  // Schedule reconciliation retry if needed
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = setTimeout(async function reconcile() {
+    const fresh = await ControlState.findOne();
+    if (!fresh) return;
+
+    // If already matched (reported == desired), stop
+    if (statesEqual(fresh.desired, fresh.reported)) {
+      fresh.pendingCommand = false;
+      fresh.attempts = 0;
+      await fresh.save();
+      io?.emit('control_update', { ...fresh.reported, commandId: fresh.commandId, pending: false });
+      return;
     }
 
-    // Get the global io instance to emit updates to all connected dashboards
-    const io = req.app.locals.io;
-    if (io) io.emit('control_update', controlData);
-    
-    // Get the global mqttClient instance to send commands to the hardware
-    const mqttClient = req.app.locals.mqttClient;
-    if (mqttClient && Object.keys(updatePayload).length > 0) {
-        // Publish only the changes to the control topic
-        mqttClient.publish(MQTT_CONTROL_TOPIC, JSON.stringify(updatePayload));
-    }
+    // Not matched yet → retry if attempts remain
+    if (fresh.attempts < RETRY_LIMIT) {
+      fresh.attempts += 1;
+      await fresh.save();
 
-    res.status(200).json({ message: 'Control data updated', controlData });
+      // Re-publish full desired snapshot to be explicit (not only changed fields)
+      const fullDesiredMsg = JSON.stringify(fresh.desired);
+      mqttClient?.publish(MQTT_CONTROL_TOPIC, fullDesiredMsg);
+      mqttClient?.publish(MQTT_COLLEAGUE_CMD_SET_TOPIC, fullDesiredMsg);
+
+      // Re-arm timer
+      retryTimer = setTimeout(reconcile, RETRY_DELAY_MS);
+    } else {
+      // Give up for this commandId; keep pending=false so UI can show a warning
+      fresh.pendingCommand = false;
+      await fresh.save();
+      io?.emit('control_mismatch', {
+        desired: fresh.desired,
+        reported: fresh.reported,
+        commandId: fresh.commandId,
+        message: 'Actuator state did not converge after retries.'
+      });
+    }
+  }, RETRY_DELAY_MS);
+
+  res.status(200).json({ message: 'Desired control updated; command published', commandId: doc.commandId });
 }
 
 module.exports = { getControl, setControl };
