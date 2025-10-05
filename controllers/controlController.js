@@ -4,9 +4,16 @@ const ControlState = require('../models/ControlState');
 const { MQTT_COLLEAGUE_CMD_SET_TOPIC } = require('../mqttClient');
 
 const RETRY_LIMIT = 3;        // max re-publishes per command
-const RETRY_DELAY_MS = 1500;  // delay between retries if mismatch persists
+const RETRY_DELAY_MS = 1500;  // delay between retries in ms
 
 let retryTimer = null;
+
+// Simple anti-duplicate guard (avoid spamming when same command is issued repeatedly)
+let lastDesiredHash = '';
+let lastPublishAt = 0;
+const MIN_PUBLISH_GAP_MS = 300;
+
+function hash(obj) { return JSON.stringify(obj); }
 
 /** Shallow-merge only provided numeric fields (0/1) into desired */
 function applyDesiredPatch(target, patch) {
@@ -43,19 +50,29 @@ async function setControl(req, res) {
   // Update desired with the provided patch
   applyDesiredPatch(doc.desired, patch);
 
+  // If nothing effectively changed, do not publish
+  const nowHash = hash(doc.desired);
+  const nowTs = Date.now();
+  if (nowHash === lastDesiredHash && (nowTs - lastPublishAt) < MIN_PUBLISH_GAP_MS) {
+    return res.status(200).json({ message: 'No-op (duplicate within debounce window)', commandId: doc.commandId });
+  }
+
   // Bump commandId, mark as pending, reset attempts
   doc.commandId += 1;
   doc.pendingCommand = true;
   doc.attempts = 0;
   await doc.save();
 
-  // Emit optimistic UI update
+  // Optimistic UI update
   io?.emit('control_update', { ...doc.desired, commandId: doc.commandId, pending: true });
 
   // Publish command ONLY to greenhouse/cmd/set
   if (mqttClient && Object.keys(patch).length > 0) {
-    const msg = JSON.stringify({ ...patch }); // send just changed fields
+    // You may choose to send only changed fields (patch) or full desired snapshot
+    const msg = JSON.stringify({ ...patch });
     mqttClient.publish(MQTT_COLLEAGUE_CMD_SET_TOPIC, msg);
+    lastDesiredHash = nowHash;
+    lastPublishAt = nowTs;
   }
 
   // Reconciliation retry (backup loop)
@@ -64,6 +81,10 @@ async function setControl(req, res) {
     const fresh = await ControlState.findOne();
     if (!fresh) return;
 
+    // If mqttClient.js already cleared pending due to ACK, stop here
+    if (!fresh.pendingCommand) return;
+
+    // If reported has converged to desired, finish
     if (statesEqual(fresh.desired, fresh.reported)) {
       fresh.pendingCommand = false;
       fresh.attempts = 0;
@@ -72,16 +93,19 @@ async function setControl(req, res) {
       return;
     }
 
+    // Not matched yet → retry if attempts remain
     if (fresh.attempts < RETRY_LIMIT) {
       fresh.attempts += 1;
       await fresh.save();
 
-      // Re-publish FULL desired snapshot to the same topic
+      // Re-publish FULL desired snapshot to be explicit
       const fullDesiredMsg = JSON.stringify(fresh.desired);
-      mqttClient?.publish(MQTT_COLLEAGUE_CMD_SET_TOPIC, fullDesiredMsg);
+      req.app.locals.mqttClient?.publish(MQTT_COLLEAGUE_CMD_SET_TOPIC, fullDesiredMsg);
 
+      // Re-arm timer
       retryTimer = setTimeout(reconcile, RETRY_DELAY_MS);
     } else {
+      // Give up for this commandId; let UI show a warning
       fresh.pendingCommand = false;
       await fresh.save();
       io?.emit('control_mismatch', {
