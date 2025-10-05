@@ -18,7 +18,7 @@ const MQTT_COLLEAGUE_CMD_SET_TOPIC   = 'greenhouse/cmd/set';   // server → dev
 const MQTT_COLLEAGUE_CMD_ACK_TOPIC   = 'greenhouse/cmd/ack';   // device → server: ACK (relay state only)
 const MQTT_COLLEAGUE_STATUS_TOPIC    = 'greenhouse/status';    // device → server: status/LWT (optional)
 
-// Normalize topic to avoid accidental double slashes
+// Normalize topic to avoid accidental double slashes, e.g., greenhouse//temperature
 const normalizeTopic = (t) => t.replace(/\/+/g, '/');
 
 function statesEqual(a, b) {
@@ -29,6 +29,35 @@ async function upsertControlDoc() {
   let doc = await ControlState.findOne();
   if (!doc) doc = await ControlState.create({});
   return doc;
+}
+
+// Helper: extract numeric sensor value from either plain text ("29.1")
+// or JSON payloads like {"temperature":29.1}, {"humidity":33}, {"soil":41}, {"value":..}
+function extractSensorValue(topic, payloadStr) {
+  // Try direct numeric (plain text)
+  const direct = Number(payloadStr);
+  if (!Number.isNaN(direct)) return direct;
+
+  // Try JSON with known keys
+  try {
+    const obj = JSON.parse(payloadStr);
+    if (obj && typeof obj === 'object') {
+      if (topic === MQTT_SENSOR_TEMPERATURE_TOPIC) {
+        const v = obj.temperature ?? obj.temp ?? obj.value;
+        if (v !== undefined) return Number(v);
+      }
+      if (topic === MQTT_SENSOR_HUMIDITY_TOPIC) {
+        const v = obj.humidity ?? obj.hum ?? obj.value;
+        if (v !== undefined) return Number(v);
+      }
+      if (topic === MQTT_SENSOR_SOIL_TOPIC) {
+        const v = obj.soil ?? obj.soilMoisture ?? obj.value;
+        if (v !== undefined) return Number(v);
+      }
+    }
+  } catch (_) { /* not JSON */ }
+
+  return NaN;
 }
 
 function initializeMqttClient(io) {
@@ -48,7 +77,7 @@ function initializeMqttClient(io) {
       MQTT_RELAY_STATE_TOPIC,
       MQTT_COLLEAGUE_ACTUATORS_TOPIC,
 
-      // ACK now treated as relay-state payload (no commandId/applied semantics)
+      // ACK treated as relay-state payload (no commandId/applied semantics)
       MQTT_COLLEAGUE_CMD_ACK_TOPIC,
 
       // optional status/LWT
@@ -78,7 +107,7 @@ function initializeMqttClient(io) {
       }
 
       // --- Relay state from device (JSON): update "reported", then reconcile ---
-      // We accept three topics as "state carriers": canonical, colleague's actuators, and colleague's cmd/ack.
+      // Accept state from: canonical, colleague's actuators, and colleague's cmd/ack.
       if (
         topic === MQTT_RELAY_STATE_TOPIC ||
         topic === MQTT_COLLEAGUE_ACTUATORS_TOPIC ||
@@ -109,7 +138,6 @@ function initializeMqttClient(io) {
 
         await doc.save();
         io?.emit('relay_state_update', doc.reported);
-        // If still pending but mismatched, controlController's retry loop will handle re-publish.
         return;
       }
 
@@ -132,9 +160,10 @@ function initializeMqttClient(io) {
           return;
       }
 
-      const value = parseFloat(payloadStr);
-      if (isNaN(value)) {
-        console.warn(`Invalid non-numeric payload on ${topic}: ${payloadStr}`);
+      // Accept both plain numeric and JSON payloads for sensors
+      const value = extractSensorValue(topic, payloadStr);
+      if (Number.isNaN(value)) {
+        console.warn(`Invalid sensor payload on ${topic}: ${payloadStr}`);
         return;
       }
 
@@ -153,5 +182,5 @@ function initializeMqttClient(io) {
 module.exports = {
   initializeMqttClient,
   MQTT_CONTROL_TOPIC,
-  MQTT_COLLEAGUE_CMD_SET_TOPIC, // still exported for dual-topic command publish
+  MQTT_COLLEAGUE_CMD_SET_TOPIC, // exported for dual-topic command publish
 };
