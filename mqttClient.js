@@ -4,15 +4,15 @@ const { TemperatureModel, HumidityModel, SoilModel } = require('./models/SensorD
 const GpsModel = require('./models/GpsData');
 const ControlState = require('./models/ControlState');
 
-// --- Topics (ONLY the ones you asked for) ---
+// --- Topics (ONLY these) ---
 const MQTT_SENSOR_TEMPERATURE_TOPIC = 'greenhouse/temperature';
 const MQTT_SENSOR_HUMIDITY_TOPIC    = 'greenhouse/humidity';
 const MQTT_SENSOR_SOIL_TOPIC        = 'greenhouse/soil';
 const MQTT_GPS_TOPIC                = 'greenhouse/gps';
 
-const MQTT_COLLEAGUE_ACTUATORS_TOPIC = 'greenhouse/actuators'; // device → server
-const MQTT_COLLEAGUE_CMD_SET_TOPIC   = 'greenhouse/cmd/set';   // server → device
-const MQTT_COLLEAGUE_CMD_ACK_TOPIC   = 'greenhouse/cmd/ack';   // device → server
+const MQTT_COLLEAGUE_ACTUATORS_TOPIC = 'greenhouse/actuators'; // device → server: relay state
+const MQTT_COLLEAGUE_CMD_SET_TOPIC   = 'greenhouse/cmd/set';   // server → device: command
+const MQTT_COLLEAGUE_CMD_ACK_TOPIC   = 'greenhouse/cmd/ack';   // device → server: ACK (relay state only)
 
 const DEBUG_MQTT = process.env.DEBUG_MQTT === '1';
 
@@ -29,8 +29,7 @@ const MQTT_COLLEAGUE_CMD_SET_TOPIC   = 'greenhouse/cmd/set';   // server → dev
 const MQTT_COLLEAGUE_CMD_ACK_TOPIC   = 'greenhouse/cmd/ack';   // device → server: ACK (relay state only)
 const MQTT_COLLEAGUE_STATUS_TOPIC    = 'greenhouse/status'; */
 
-
-// --- helpers ---
+// Normalize slashes: greenhouse//temperature -> greenhouse/temperature
 const normalizeSlashes = (t) => t.replace(/\/+/g, '/').replace(/^\/|\/$/g, '');
 
 // Parse topic into {base, deviceId|null, leaf}
@@ -38,18 +37,17 @@ const normalizeSlashes = (t) => t.replace(/\/+/g, '/').replace(/^\/|\/$/g, '');
 function parseTopic(raw) {
   const t = normalizeSlashes(raw);
   const parts = t.split('/');
-  const base = parts[0]; // 'greenhouse' expected
+  const base = parts[0]; // should be 'greenhouse'
   if (base !== 'greenhouse') return { base, deviceId: null, leaf: parts.slice(1).join('/') };
 
-  const knownLeaves = new Set(['temperature', 'humidity', 'soil', 'gps', 'actuators', 'cmd', 'status']);
+  const knownLeaves = new Set(['temperature','humidity','soil','gps','actuators','cmd','status']);
   let deviceId = null;
   let leafStart = 1;
-
   if (parts.length >= 3 && !knownLeaves.has(parts[1])) {
     deviceId = parts[1];
     leafStart = 2;
   }
-  const leaf = parts.slice(leafStart).join('/'); // e.g. 'temperature', 'actuators', 'cmd/ack'
+  const leaf = parts.slice(leafStart).join('/'); // e.g., 'temperature', 'actuators', 'cmd/ack'
   return { base, deviceId, leaf };
 }
 
@@ -97,7 +95,7 @@ function initializeMqttClient(io) {
 
   mqttClient.on('connect', () => {
     console.log('MQTT client connected successfully.');
-    // Subscribe to everything under greenhouse; we route by parsed leaf
+    // Subscribe to everything under greenhouse; we route by parsed leaf/deviceId
     mqttClient.subscribe('greenhouse/#');
     if (DEBUG_MQTT) console.log('[MQTT] Subscribed to greenhouse/#');
   });
@@ -124,8 +122,7 @@ function initializeMqttClient(io) {
         return;
       }
 
-      // --- Relay state from device ---
-      // Accept: 'actuators' and 'cmd/ack' (both with/without deviceId)
+      // --- Relay state & ACK (both JSON with only {fan,lamp,pump,valve}) ---
       if (leaf === 'actuators' || leaf === 'cmd/ack') {
         let state;
         try { state = JSON.parse(payloadStr); } catch { state = null; }
@@ -135,6 +132,8 @@ function initializeMqttClient(io) {
         }
 
         const doc = await upsertControlDoc();
+
+        // Update reported with ONLY provided keys; keep others as-is
         doc.reported = {
           fan:   Number(state.fan   ?? doc.reported.fan),
           lamp:  Number(state.lamp  ?? doc.reported.lamp),
@@ -144,11 +143,18 @@ function initializeMqttClient(io) {
         };
 
         if (statesEqual(doc.desired, doc.reported)) {
+          // Converged → stop pending/retries
           doc.pendingCommand = false;
           doc.attempts = 0;
+          await doc.save();
+        } else {
+          // Not converged → immediate corrective publish of FULL desired snapshot
+          await doc.save();
+          const fullDesiredMsg = JSON.stringify(doc.desired);
+          mqttClient.publish(MQTT_COLLEAGUE_CMD_SET_TOPIC, fullDesiredMsg);
+          if (DEBUG_MQTT) console.log('[MQTT] Re-published desired due to mismatch after state/ACK:', fullDesiredMsg);
         }
 
-        await doc.save();
         io?.emit('relay_state_update', { ...doc.reported, deviceId });
         return;
       }

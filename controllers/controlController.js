@@ -1,17 +1,14 @@
 // controllers/controlController.js
 const { validationResult } = require('express-validator');
 const ControlState = require('../models/ControlState');
-const { MQTT_CONTROL_TOPIC, MQTT_COLLEAGUE_CMD_SET_TOPIC } = require('../mqttClient');
+const { MQTT_COLLEAGUE_CMD_SET_TOPIC } = require('../mqttClient');
 
 const RETRY_LIMIT = 3;        // max re-publishes per command
 const RETRY_DELAY_MS = 1500;  // delay between retries if mismatch persists
 
-// In-memory timers keyed by commandId (single-device). For multi-device, key by deviceId+commandId.
 let retryTimer = null;
 
-/**
- * Shallow merge only provided numeric fields into target object (0/1).
- */
+/** Shallow-merge only provided numeric fields (0/1) into desired */
 function applyDesiredPatch(target, patch) {
   ['fan','lamp','pump','valve'].forEach(k => {
     if (typeof patch[k] === 'number') target[k] = patch[k];
@@ -55,20 +52,18 @@ async function setControl(req, res) {
   // Emit optimistic UI update
   io?.emit('control_update', { ...doc.desired, commandId: doc.commandId, pending: true });
 
-  // Publish command to both topics
-  const msg = JSON.stringify({ ...patch }); // only changed fields (your existing behavior)
+  // Publish command ONLY to greenhouse/cmd/set
   if (mqttClient && Object.keys(patch).length > 0) {
-    mqttClient.publish(MQTT_CONTROL_TOPIC, msg);
+    const msg = JSON.stringify({ ...patch }); // send just changed fields
     mqttClient.publish(MQTT_COLLEAGUE_CMD_SET_TOPIC, msg);
   }
 
-  // Schedule reconciliation retry if needed
+  // Reconciliation retry (backup loop)
   if (retryTimer) clearTimeout(retryTimer);
   retryTimer = setTimeout(async function reconcile() {
     const fresh = await ControlState.findOne();
     if (!fresh) return;
 
-    // If already matched (reported == desired), stop
     if (statesEqual(fresh.desired, fresh.reported)) {
       fresh.pendingCommand = false;
       fresh.attempts = 0;
@@ -77,20 +72,16 @@ async function setControl(req, res) {
       return;
     }
 
-    // Not matched yet → retry if attempts remain
     if (fresh.attempts < RETRY_LIMIT) {
       fresh.attempts += 1;
       await fresh.save();
 
-      // Re-publish full desired snapshot to be explicit (not only changed fields)
+      // Re-publish FULL desired snapshot to the same topic
       const fullDesiredMsg = JSON.stringify(fresh.desired);
-      mqttClient?.publish(MQTT_CONTROL_TOPIC, fullDesiredMsg);
       mqttClient?.publish(MQTT_COLLEAGUE_CMD_SET_TOPIC, fullDesiredMsg);
 
-      // Re-arm timer
       retryTimer = setTimeout(reconcile, RETRY_DELAY_MS);
     } else {
-      // Give up for this commandId; keep pending=false so UI can show a warning
       fresh.pendingCommand = false;
       await fresh.save();
       io?.emit('control_mismatch', {
