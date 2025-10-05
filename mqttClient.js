@@ -8,15 +8,15 @@ const ControlState = require('./models/ControlState');
 const MQTT_SENSOR_TEMPERATURE_TOPIC = 'greenhouse/temperature';
 const MQTT_SENSOR_HUMIDITY_TOPIC    = 'greenhouse/humidity';
 const MQTT_SENSOR_SOIL_TOPIC        = 'greenhouse/soil';
-const MQTT_CONTROL_TOPIC            = 'greenhouse/control/command';
-const MQTT_RELAY_STATE_TOPIC        = 'greenhouse/state/relay';
+//const MQTT_CONTROL_TOPIC            = 'greenhouse/control/command';
+//const MQTT_RELAY_STATE_TOPIC        = 'greenhouse/state/relay';
 const MQTT_GPS_TOPIC                = 'greenhouse/gps';
 
 // --- Colleague firmware topics (compatibility) ---
 const MQTT_COLLEAGUE_ACTUATORS_TOPIC = 'greenhouse/actuators'; // device → server: relay state
 const MQTT_COLLEAGUE_CMD_SET_TOPIC   = 'greenhouse/cmd/set';   // server → device: command
 const MQTT_COLLEAGUE_CMD_ACK_TOPIC   = 'greenhouse/cmd/ack';   // device → server: ACK (relay state only)
-const MQTT_COLLEAGUE_STATUS_TOPIC    = 'greenhouse/status';    // device → server: status/LWT (optional)
+//const MQTT_COLLEAGUE_STATUS_TOPIC    = 'greenhouse/status';    // device → server: status/LWT (optional)
 
 // Normalize topic to avoid accidental double slashes, e.g., greenhouse//temperature
 const normalizeTopic = (t) => t.replace(/\/+/g, '/');
